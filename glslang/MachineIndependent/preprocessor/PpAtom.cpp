@@ -153,6 +153,12 @@ const struct {
 
 namespace glslang {
 
+TStringAtomMap::TStringAtomMap(TStringAtomMap& other)
+{
+	atomMap = other.atomMap;
+    stringMap = other.stringMap;
+}
+
 //
 // Initialize the atom table.
 //

@@ -39,6 +39,8 @@
 
 #include "localintermediate.h"
 #include "../Include/InfoSink.h"
+#include "../Include/../MachineIndependent/ParseHelper.h"
+#include "../Include/../MachineIndependent/preprocessor/PpContext.h"
 
 #ifdef _MSC_VER
 #include <cfloat>
@@ -1418,6 +1420,11 @@ bool TOutputTraverser::visitSwitch(TVisit /* visit */, TIntermSwitch* node)
     --depth;
 
     return false;
+}
+
+void TIntermediate::setPPContext(TPpContext* refPpContext) //***
+{
+	ppContext = new TPpContext(refPpContext);
 }
 
 //

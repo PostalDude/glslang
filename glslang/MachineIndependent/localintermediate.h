@@ -51,7 +51,11 @@
 
 class TInfoSink;
 
+
 namespace glslang {
+
+	
+	class TPpContext;
 
 struct TMatrixSelector {
     int coord1;  // stay agnostic about column/row; this is parse order
@@ -382,6 +386,8 @@ public:
 #endif
 
     bool isRecursive() const { return recursive; }
+
+	void setPPContext(TPpContext* refPpContext); //***
 
     TIntermSymbol* addSymbol(const TVariable&);
     TIntermSymbol* addSymbol(const TVariable&, const TSourceLoc&);
@@ -896,13 +902,22 @@ protected:
 public:
     const char* const implicitThisName;
     const char* const implicitCounterName;
+	
+
 protected:
     EShSource source;            // source language, known a bit later
 #endif
+
+	public:
+		TPpContext* ppContext; //***
+    protected:
+
     std::string entryPointName;
     std::string entryPointMangledName;
     typedef std::list<TCall> TGraph;
     TGraph callGraph;
+
+	
 
     EProfile profile;                           // source profile
     int version;                                // source version

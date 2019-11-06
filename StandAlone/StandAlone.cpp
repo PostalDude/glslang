@@ -1063,6 +1063,9 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
 
         program.addShader(shader);
 
+		//*** Generate Shader HxTech Pipeline information from defines in shader.Intermediate
+		//*** shader->getIntermediate()->ppContext;
+
         if (! (Options & EOptionSuppressInfolog) &&
             ! (Options & EOptionMemoryLeakMode)) {
             PutsIfNonEmpty(compUnit.fileName[0].c_str());
@@ -1121,6 +1124,8 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
                     spvOptions.validate = SpvToolsValidate;
                     glslang::GlslangToSpv(*program.getIntermediate((EShLanguage)stage), spirv, &logger, &spvOptions);
 
+					
+
                     // Dump the spv to a file or stdout, etc., but only if not doing
                     // memory/perf testing, as it's not internal to programmatic use.
                     if (! (Options & EOptionMemoryLeakMode)) {
@@ -1139,6 +1144,8 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
             }
         }
     }
+
+	
 
     // Free everything up, program has to go before the shaders
     // because it might have merged stuff from the shaders, and

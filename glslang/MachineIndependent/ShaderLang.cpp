@@ -1189,8 +1189,11 @@ struct DoFullParse{
     {
         bool success = true;
         // Parse the full shader.
-        if (! parseContext.parseShaderStrings(ppContext, fullInput, versionWillBeError))
+        if (! parseContext.parseShaderStrings(ppContext, fullInput, versionWillBeError)) {
             success = false;
+        } else {
+			intermediate.setPPContext(&ppContext);
+        }
 
         if (success && intermediate.getTreeRoot()) {
             if (optLevel == EShOptNoGeneration)

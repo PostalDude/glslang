@@ -136,7 +136,7 @@ class TStringAtomMap {
 //
 public:
     TStringAtomMap();
-
+	TStringAtomMap(TStringAtomMap& other);
     // Map string -> atom.
     // Return 0 if no existing string.
     int getAtom(const char* s) const
@@ -160,9 +160,9 @@ public:
     const char* getString(int atom) const { return stringMap[atom]->c_str(); }
 
 protected:
-    TStringAtomMap(TStringAtomMap&);
-    TStringAtomMap& operator=(TStringAtomMap&);
-
+	TStringAtomMap& operator=(TStringAtomMap&);
+    
+    
     TUnorderedMap<TString, int> atomMap;
     TVector<const TString*> stringMap;    // these point into the TString in atomMap
     int nextAtom;
@@ -197,7 +197,8 @@ enum MacroExpandResult {
 // Don't expect too much in terms of OO design.
 class TPpContext {
 public:
-    TPpContext(TParseContextBase&, const std::string& rootFileName, TShader::Includer&);
+    TPpContext(TPpContext* pFrom);
+	TPpContext(TParseContextBase&, const std::string& rootFileName, TShader::Includer&);
     virtual ~TPpContext();
 
     void setPreamble(const char* preamble, size_t length);
@@ -347,6 +348,8 @@ protected:
     TPpContext& operator=(TPpContext&);
 
     TStringAtomMap atomStrings;
+
+
     char*   preamble;               // string to parse, all before line 1 of string 0, it is 0 if no preamble
     int     preambleLength;
     char**  strings;                // official strings of shader, starting a string 0 line 1
