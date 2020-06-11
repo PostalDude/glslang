@@ -908,10 +908,10 @@ protected:
     EShSource source;            // source language, known a bit later
 #endif
 
-	public:
-		TPpContext* ppContext; //***
-    protected:
+public:
+	TPpContext* ppContext; //***
 
+protected:
     std::string entryPointName;
     std::string entryPointMangledName;
     typedef std::list<TCall> TGraph;

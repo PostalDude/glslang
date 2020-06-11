@@ -39,22 +39,23 @@
 #define _CRT_SECURE_NO_WARNINGS
 #endif
 
-#include "ResourceLimits.h"
-#include "Worklist.h"
-#include "DirStackFileIncluder.h"
+#include "../SPIRV/GLSL.std.450.h"
+#include "../SPIRV/GlslangToSpv.h"
+#include "../SPIRV/disassemble.h"
+#include "../SPIRV/doc.h"
 #include "./../glslang/Include/ShHandle.h"
 #include "./../glslang/Include/revision.h"
+#include "./../glslang/MachineIndependent/preprocessor/PpContext.h"
 #include "./../glslang/Public/ShaderLang.h"
-#include "../SPIRV/GlslangToSpv.h"
-#include "../SPIRV/GLSL.std.450.h"
-#include "../SPIRV/doc.h"
-#include "../SPIRV/disassemble.h"
+#include "DirStackFileIncluder.h"
+#include "ResourceLimits.h"
+#include "Worklist.h"
 
-#include <cstring>
-#include <cstdlib>
+#include <array>
 #include <cctype>
 #include <cmath>
-#include <array>
+#include <cstdlib>
+#include <cstring>
 #include <map>
 #include <memory>
 #include <thread>
@@ -62,44 +63,44 @@
 #include "../glslang/OSDependent/osinclude.h"
 
 extern "C" {
-    SH_IMPORT_EXPORT void ShOutputHtml();
+SH_IMPORT_EXPORT void ShOutputHtml();
 }
 
 // Command-line options
 enum TOptions {
-    EOptionNone                 = 0,
-    EOptionIntermediate         = (1 <<  0),
-    EOptionSuppressInfolog      = (1 <<  1),
-    EOptionMemoryLeakMode       = (1 <<  2),
-    EOptionRelaxedErrors        = (1 <<  3),
-    EOptionGiveWarnings         = (1 <<  4),
-    EOptionLinkProgram          = (1 <<  5),
-    EOptionMultiThreaded        = (1 <<  6),
-    EOptionDumpConfig           = (1 <<  7),
-    EOptionDumpReflection       = (1 <<  8),
-    EOptionSuppressWarnings     = (1 <<  9),
-    EOptionDumpVersions         = (1 << 10),
-    EOptionSpv                  = (1 << 11),
-    EOptionHumanReadableSpv     = (1 << 12),
-    EOptionVulkanRules          = (1 << 13),
-    EOptionDefaultDesktop       = (1 << 14),
-    EOptionOutputPreprocessed   = (1 << 15),
-    EOptionOutputHexadecimal    = (1 << 16),
-    EOptionReadHlsl             = (1 << 17),
-    EOptionCascadingErrors      = (1 << 18),
-    EOptionAutoMapBindings      = (1 << 19),
+    EOptionNone = 0,
+    EOptionIntermediate = (1 << 0),
+    EOptionSuppressInfolog = (1 << 1),
+    EOptionMemoryLeakMode = (1 << 2),
+    EOptionRelaxedErrors = (1 << 3),
+    EOptionGiveWarnings = (1 << 4),
+    EOptionLinkProgram = (1 << 5),
+    EOptionMultiThreaded = (1 << 6),
+    EOptionDumpConfig = (1 << 7),
+    EOptionDumpReflection = (1 << 8),
+    EOptionSuppressWarnings = (1 << 9),
+    EOptionDumpVersions = (1 << 10),
+    EOptionSpv = (1 << 11),
+    EOptionHumanReadableSpv = (1 << 12),
+    EOptionVulkanRules = (1 << 13),
+    EOptionDefaultDesktop = (1 << 14),
+    EOptionOutputPreprocessed = (1 << 15),
+    EOptionOutputHexadecimal = (1 << 16),
+    EOptionReadHlsl = (1 << 17),
+    EOptionCascadingErrors = (1 << 18),
+    EOptionAutoMapBindings = (1 << 19),
     EOptionFlattenUniformArrays = (1 << 20),
-    EOptionNoStorageFormat      = (1 << 21),
-    EOptionKeepUncalled         = (1 << 22),
-    EOptionHlslOffsets          = (1 << 23),
-    EOptionHlslIoMapping        = (1 << 24),
-    EOptionAutoMapLocations     = (1 << 25),
-    EOptionDebug                = (1 << 26),
-    EOptionStdin                = (1 << 27),
-    EOptionOptimizeDisable      = (1 << 28),
-    EOptionOptimizeSize         = (1 << 29),
-    EOptionInvertY              = (1 << 30),
-    EOptionDumpBareVersion      = (1 << 31),
+    EOptionNoStorageFormat = (1 << 21),
+    EOptionKeepUncalled = (1 << 22),
+    EOptionHlslOffsets = (1 << 23),
+    EOptionHlslIoMapping = (1 << 24),
+    EOptionAutoMapLocations = (1 << 25),
+    EOptionDebug = (1 << 26),
+    EOptionStdin = (1 << 27),
+    EOptionOptimizeDisable = (1 << 28),
+    EOptionOptimizeSize = (1 << 29),
+    EOptionInvertY = (1 << 30),
+    EOptionDumpBareVersion = (1 << 31),
 };
 bool targetHlslFunctionality1 = false;
 bool SpvToolsDisassembler = false;
@@ -122,7 +123,7 @@ enum TFailCode {
 //
 // Forward declarations.
 //
-EShLanguage FindLanguage(const std::string& name, bool parseSuffix=true);
+EShLanguage FindLanguage(const std::string& name, bool parseSuffix = true);
 void CompileFile(const char* fileName, ShHandle);
 void usage();
 char* ReadFileData(const char* fileName);
@@ -149,7 +150,7 @@ void ProcessConfigFile()
 #ifndef GLSLANG_WEB
     else {
         char* configString = ReadFileData(ConfigFile.c_str());
-        glslang::DecodeResourceLimits(&Resources,  configString);
+        glslang::DecodeResourceLimits(&Resources, configString);
         FreeFileData(configString);
     }
 #endif
@@ -173,12 +174,12 @@ std::vector<std::string> IncludeDirectoryList;
 int ClientInputSemanticsVersion = 100;
 
 // Target environment
-glslang::EShClient Client = glslang::EShClientNone;  // will stay EShClientNone if only validating
-glslang::EShTargetClientVersion ClientVersion;       // not valid until Client is set
+glslang::EShClient Client = glslang::EShClientNone; // will stay EShClientNone if only validating
+glslang::EShTargetClientVersion ClientVersion;      // not valid until Client is set
 glslang::EShTargetLanguage TargetLanguage = glslang::EShTargetNone;
-glslang::EShTargetLanguageVersion TargetVersion;     // not valid until TargetLanguage is set
+glslang::EShTargetLanguageVersion TargetVersion; // not valid until TargetLanguage is set
 
-std::vector<std::string> Processes;                     // what should be recorded by OpModuleProcessed, or equivalent
+std::vector<std::string> Processes; // what should be recorded by OpModuleProcessed, or equivalent
 
 // Per descriptor-set binding base data
 typedef std::map<unsigned int, unsigned int> TPerSetBaseBinding;
@@ -193,7 +194,7 @@ std::array<std::vector<std::string>, EShLangCount> baseResourceSetBinding;
 // Add things like "#define ..." to a preamble to use in the beginning of the shader.
 class TPreamble {
 public:
-    TPreamble() { }
+    TPreamble() {}
 
     bool isSet() const { return text.size() > 0; }
     const char* get() const { return text.c_str(); }
@@ -238,7 +239,7 @@ protected:
             line = line.substr(0, end);
     }
 
-    std::string text;  // contents of preamble
+    std::string text; // contents of preamble
 };
 
 TPreamble UserPreamble;
@@ -251,21 +252,51 @@ const char* GetBinaryName(EShLanguage stage)
     const char* name;
     if (binaryFileName == nullptr) {
         switch (stage) {
-        case EShLangVertex:          name = "vert.spv";    break;
-        case EShLangTessControl:     name = "tesc.spv";    break;
-        case EShLangTessEvaluation:  name = "tese.spv";    break;
-        case EShLangGeometry:        name = "geom.spv";    break;
-        case EShLangFragment:        name = "frag.spv";    break;
-        case EShLangCompute:         name = "comp.spv";    break;
-        case EShLangRayGenNV:        name = "rgen.spv";    break;
-        case EShLangIntersectNV:     name = "rint.spv";    break;
-        case EShLangAnyHitNV:        name = "rahit.spv";   break;
-        case EShLangClosestHitNV:    name = "rchit.spv";   break;
-        case EShLangMissNV:          name = "rmiss.spv";   break;
-        case EShLangCallableNV:      name = "rcall.spv";   break;
-        case EShLangMeshNV:          name = "mesh.spv";    break;
-        case EShLangTaskNV:          name = "task.spv";    break;
-        default:                     name = "unknown";     break;
+        case EShLangVertex:
+            name = "vert.spv";
+            break;
+        case EShLangTessControl:
+            name = "tesc.spv";
+            break;
+        case EShLangTessEvaluation:
+            name = "tese.spv";
+            break;
+        case EShLangGeometry:
+            name = "geom.spv";
+            break;
+        case EShLangFragment:
+            name = "frag.spv";
+            break;
+        case EShLangCompute:
+            name = "comp.spv";
+            break;
+        case EShLangRayGenNV:
+            name = "rgen.spv";
+            break;
+        case EShLangIntersectNV:
+            name = "rint.spv";
+            break;
+        case EShLangAnyHitNV:
+            name = "rahit.spv";
+            break;
+        case EShLangClosestHitNV:
+            name = "rchit.spv";
+            break;
+        case EShLangMissNV:
+            name = "rmiss.spv";
+            break;
+        case EShLangCallableNV:
+            name = "rcall.spv";
+            break;
+        case EShLangMeshNV:
+            name = "mesh.spv";
+            break;
+        case EShLangTaskNV:
+            name = "task.spv";
+            break;
+        default:
+            name = "unknown";
+            break;
         }
     } else
         name = binaryFileName;
@@ -323,9 +354,9 @@ void ProcessBindingBase(int& argc, char**& argv, glslang::TResourceType res)
         lang = FindLanguage(argv[arg++], false);
     }
 
-    if ((argc - arg) > 2 && isdigit(argv[arg+0][0]) && isdigit(argv[arg+1][0])) {
+    if ((argc - arg) > 2 && isdigit(argv[arg + 0][0]) && isdigit(argv[arg + 1][0])) {
         // Parse a per-set binding base
-        while ((argc - arg) > 2 && isdigit(argv[arg+0][0]) && isdigit(argv[arg+1][0])) {
+        while ((argc - arg) > 2 && isdigit(argv[arg + 0][0]) && isdigit(argv[arg + 1][0])) {
             const int baseNum = atoi(argv[arg++]);
             const int setNum = atoi(argv[arg++]);
             perSetBase[setNum] = baseNum;
@@ -335,12 +366,12 @@ void ProcessBindingBase(int& argc, char**& argv, glslang::TResourceType res)
         singleBase = atoi(argv[arg++]);
     }
 
-    argc -= (arg-1);
-    argv += (arg-1);
+    argc -= (arg - 1);
+    argv += (arg - 1);
 
     // Set one or all languages
-    const int langMin = (lang < EShLangCount) ? lang+0 : 0;
-    const int langMax = (lang < EShLangCount) ? lang+1 : EShLangCount;
+    const int langMin = (lang < EShLangCount) ? lang + 0 : 0;
+    const int langMax = (lang < EShLangCount) ? lang + 1 : EShLangCount;
 
     for (int lang = langMin; lang < langMax; ++lang) {
         if (!perSetBase.empty())
@@ -379,7 +410,7 @@ void ProcessResourceSetBindingBase(int& argc, char**& argv, std::array<std::vect
 
     } else {
         // Parse form: --argname set
-        for (int lang=0; lang<EShLangCount; ++lang)
+        for (int lang = 0; lang < EShLangCount; ++lang)
             base[lang].push_back(argv[1]);
 
         argc--;
@@ -449,8 +480,8 @@ void ProcessArguments(std::vector<std::unique_ptr<glslang::TWorkItem>>& workItem
     };
 
     const auto getUniformOverride = [getStringOperand]() {
-        const char *arg = getStringOperand("-u<name>:<location>");
-        const char *split = strchr(arg, ':');
+        const char* arg = getStringOperand("-u<name>:<location>");
+        const char* split = strchr(arg, ':');
         if (split == NULL) {
             printf("%s: missing location\n", arg);
             exit(EFailUsage);
@@ -467,177 +498,162 @@ void ProcessArguments(std::vector<std::unique_ptr<glslang::TWorkItem>>& workItem
     for (bumpArg(); argc >= 1; bumpArg()) {
         if (argv[0][0] == '-') {
             switch (argv[0][1]) {
-            case '-':
-                {
-                    std::string lowerword(argv[0]+2);
-                    std::transform(lowerword.begin(), lowerword.end(), lowerword.begin(), ::tolower);
+            case '-': {
+                std::string lowerword(argv[0] + 2);
+                std::transform(lowerword.begin(), lowerword.end(), lowerword.begin(), ::tolower);
 
-                    // handle --word style options
-                    if (lowerword == "auto-map-bindings" ||  // synonyms
-                        lowerword == "auto-map-binding"  ||
-                        lowerword == "amb") {
-                        Options |= EOptionAutoMapBindings;
-                    } else if (lowerword == "auto-map-locations" || // synonyms
-                               lowerword == "aml") {
-                        Options |= EOptionAutoMapLocations;
-                    } else if (lowerword == "uniform-base") {
-                        if (argc <= 1)
-                            Error("no <base> provided for --uniform-base");
-                        uniformBase = ::strtol(argv[1], NULL, 10);
-                        bumpArg();
-                        break;
-                    } else if (lowerword == "client") {
-                        if (argc > 1) {
-                            if (strcmp(argv[1], "vulkan100") == 0)
-                                setVulkanSpv();
-                            else if (strcmp(argv[1], "opengl100") == 0)
-                                setOpenGlSpv();
-                            else
-                                Error("--client expects vulkan100 or opengl100");
-                        }
-                        bumpArg();
-                    } else if (lowerword == "dump-builtin-symbols") {
-                        DumpBuiltinSymbols = true;
-                    } else if (lowerword == "entry-point") {
-                        entryPointName = argv[1];
-                        if (argc <= 1)
-                            Error("no <name> provided for --entry-point");
-                        bumpArg();
-                    } else if (lowerword == "flatten-uniform-arrays" || // synonyms
-                               lowerword == "flatten-uniform-array"  ||
-                               lowerword == "fua") {
-                        Options |= EOptionFlattenUniformArrays;
-                    } else if (lowerword == "hlsl-offsets") {
-                        Options |= EOptionHlslOffsets;
-                    } else if (lowerword == "hlsl-iomap" ||
-                               lowerword == "hlsl-iomapper" ||
-                               lowerword == "hlsl-iomapping") {
-                        Options |= EOptionHlslIoMapping;
-                    } else if (lowerword == "hlsl-enable-16bit-types") {
-                        HlslEnable16BitTypes = true;
-                    } else if (lowerword == "hlsl-dx9-compatible") {
-                        HlslDX9compatible = true;
-                    } else if (lowerword == "invert-y" ||  // synonyms
-                               lowerword == "iy") {
-                        Options |= EOptionInvertY;
-                    } else if (lowerword == "keep-uncalled" || // synonyms
-                               lowerword == "ku") {
-                        Options |= EOptionKeepUncalled;
-                    } else if (lowerword == "nan-clamp") {
-                        NaNClamp = true;
-                    } else if (lowerword == "no-storage-format" || // synonyms
-                               lowerword == "nsf") {
-                        Options |= EOptionNoStorageFormat;
-                    } else if (lowerword == "relaxed-errors") {
-                        Options |= EOptionRelaxedErrors;
-                    } else if (lowerword == "reflect-strict-array-suffix") {
-                        ReflectOptions |= EShReflectionStrictArraySuffix;
-                    } else if (lowerword == "reflect-basic-array-suffix") {
-                        ReflectOptions |= EShReflectionBasicArraySuffix;
-                    } else if (lowerword == "reflect-intermediate-io") {
-                        ReflectOptions |= EShReflectionIntermediateIO;
-                    } else if (lowerword == "reflect-separate-buffers") {
-                        ReflectOptions |= EShReflectionSeparateBuffers;
-                    } else if (lowerword == "reflect-all-block-variables") {
-                        ReflectOptions |= EShReflectionAllBlockVariables;
-                    } else if (lowerword == "reflect-unwrap-io-blocks") {
-                        ReflectOptions |= EShReflectionUnwrapIOBlocks;
-                    } else if (lowerword == "resource-set-bindings" ||  // synonyms
-                               lowerword == "resource-set-binding"  ||
-                               lowerword == "rsb") {
-                        ProcessResourceSetBindingBase(argc, argv, baseResourceSetBinding);
-                    } else if (lowerword == "shift-image-bindings" ||  // synonyms
-                               lowerword == "shift-image-binding"  ||
-                               lowerword == "sib") {
-                        ProcessBindingBase(argc, argv, glslang::EResImage);
-                    } else if (lowerword == "shift-sampler-bindings" || // synonyms
-                               lowerword == "shift-sampler-binding"  ||
-                               lowerword == "ssb") {
-                        ProcessBindingBase(argc, argv, glslang::EResSampler);
-                    } else if (lowerword == "shift-uav-bindings" ||  // synonyms
-                               lowerword == "shift-uav-binding"  ||
-                               lowerword == "suavb") {
-                        ProcessBindingBase(argc, argv, glslang::EResUav);
-                    } else if (lowerword == "shift-texture-bindings" ||  // synonyms
-                               lowerword == "shift-texture-binding"  ||
-                               lowerword == "stb") {
-                        ProcessBindingBase(argc, argv, glslang::EResTexture);
-                    } else if (lowerword == "shift-ubo-bindings" ||  // synonyms
-                               lowerword == "shift-ubo-binding"  ||
-                               lowerword == "shift-cbuffer-bindings" ||
-                               lowerword == "shift-cbuffer-binding"  ||
-                               lowerword == "sub" ||
-                               lowerword == "scb") {
-                        ProcessBindingBase(argc, argv, glslang::EResUbo);
-                    } else if (lowerword == "shift-ssbo-bindings" ||  // synonyms
-                               lowerword == "shift-ssbo-binding"  ||
-                               lowerword == "sbb") {
-                        ProcessBindingBase(argc, argv, glslang::EResSsbo);
-                    } else if (lowerword == "source-entrypoint" || // synonyms
-                               lowerword == "sep") {
-                        if (argc <= 1)
-                            Error("no <entry-point> provided for --source-entrypoint");
-                        sourceEntryPointName = argv[1];
-                        bumpArg();
-                        break;
-                    } else if (lowerword == "spirv-dis") {
-                        SpvToolsDisassembler = true;
-                    } else if (lowerword == "spirv-val") {
-                        SpvToolsValidate = true;
-                    } else if (lowerword == "stdin") {
-                        Options |= EOptionStdin;
-                        shaderStageName = argv[1];
-                    } else if (lowerword == "suppress-warnings") {
-                        Options |= EOptionSuppressWarnings;
-                    } else if (lowerword == "target-env") {
-                        if (argc > 1) {
-                            if (strcmp(argv[1], "vulkan1.0") == 0) {
-                                setVulkanSpv();
-                                ClientVersion = glslang::EShTargetVulkan_1_0;
-                            } else if (strcmp(argv[1], "vulkan1.1") == 0) {
-                                setVulkanSpv();
-                                ClientVersion = glslang::EShTargetVulkan_1_1;
-                            } else if (strcmp(argv[1], "opengl") == 0) {
-                                setOpenGlSpv();
-                                ClientVersion = glslang::EShTargetOpenGL_450;
-                            } else if (strcmp(argv[1], "spirv1.0") == 0) {
-                                TargetLanguage = glslang::EShTargetSpv;
-                                TargetVersion = glslang::EShTargetSpv_1_0;
-                            } else if (strcmp(argv[1], "spirv1.1") == 0) {
-                                TargetLanguage = glslang::EShTargetSpv;
-                                TargetVersion = glslang::EShTargetSpv_1_1;
-                            } else if (strcmp(argv[1], "spirv1.2") == 0) {
-                                TargetLanguage = glslang::EShTargetSpv;
-                                TargetVersion = glslang::EShTargetSpv_1_2;
-                            } else if (strcmp(argv[1], "spirv1.3") == 0) {
-                                TargetLanguage = glslang::EShTargetSpv;
-                                TargetVersion = glslang::EShTargetSpv_1_3;
-                            } else if (strcmp(argv[1], "spirv1.4") == 0) {
-                                TargetLanguage = glslang::EShTargetSpv;
-                                TargetVersion = glslang::EShTargetSpv_1_4;
-                            } else if (strcmp(argv[1], "spirv1.5") == 0) {
-                                TargetLanguage = glslang::EShTargetSpv;
-                                TargetVersion = glslang::EShTargetSpv_1_5;
-                            } else
-                                Error("--target-env expected one of: vulkan1.0, vulkan1.1, opengl,\n"
-                                      "spirv1.0, spirv1.1, spirv1.2, spirv1.3, spirv1.4, or spirv1.5");
-                        }
-                        bumpArg();
-                    } else if (lowerword == "variable-name" || // synonyms
-                               lowerword == "vn") {
-                        Options |= EOptionOutputHexadecimal;
-                        if (argc <= 1)
-                            Error("no <C-variable-name> provided for --variable-name");
-                        variableName = argv[1];
-                        bumpArg();
-                        break;
-                    } else if (lowerword == "version") {
-                        Options |= EOptionDumpVersions;
-                    } else {
-                        usage();
+                // handle --word style options
+                if (lowerword == "auto-map-bindings" || // synonyms
+                    lowerword == "auto-map-binding" || lowerword == "amb") {
+                    Options |= EOptionAutoMapBindings;
+                } else if (lowerword == "auto-map-locations" || // synonyms
+                           lowerword == "aml") {
+                    Options |= EOptionAutoMapLocations;
+                } else if (lowerword == "uniform-base") {
+                    if (argc <= 1)
+                        Error("no <base> provided for --uniform-base");
+                    uniformBase = ::strtol(argv[1], NULL, 10);
+                    bumpArg();
+                    break;
+                } else if (lowerword == "client") {
+                    if (argc > 1) {
+                        if (strcmp(argv[1], "vulkan100") == 0)
+                            setVulkanSpv();
+                        else if (strcmp(argv[1], "opengl100") == 0)
+                            setOpenGlSpv();
+                        else
+                            Error("--client expects vulkan100 or opengl100");
                     }
+                    bumpArg();
+                } else if (lowerword == "dump-builtin-symbols") {
+                    DumpBuiltinSymbols = true;
+                } else if (lowerword == "entry-point") {
+                    entryPointName = argv[1];
+                    if (argc <= 1)
+                        Error("no <name> provided for --entry-point");
+                    bumpArg();
+                } else if (lowerword == "flatten-uniform-arrays" || // synonyms
+                           lowerword == "flatten-uniform-array" || lowerword == "fua") {
+                    Options |= EOptionFlattenUniformArrays;
+                } else if (lowerword == "hlsl-offsets") {
+                    Options |= EOptionHlslOffsets;
+                } else if (lowerword == "hlsl-iomap" || lowerword == "hlsl-iomapper" || lowerword == "hlsl-iomapping") {
+                    Options |= EOptionHlslIoMapping;
+                } else if (lowerword == "hlsl-enable-16bit-types") {
+                    HlslEnable16BitTypes = true;
+                } else if (lowerword == "hlsl-dx9-compatible") {
+                    HlslDX9compatible = true;
+                } else if (lowerword == "invert-y" || // synonyms
+                           lowerword == "iy") {
+                    Options |= EOptionInvertY;
+                } else if (lowerword == "keep-uncalled" || // synonyms
+                           lowerword == "ku") {
+                    Options |= EOptionKeepUncalled;
+                } else if (lowerword == "nan-clamp") {
+                    NaNClamp = true;
+                } else if (lowerword == "no-storage-format" || // synonyms
+                           lowerword == "nsf") {
+                    Options |= EOptionNoStorageFormat;
+                } else if (lowerword == "relaxed-errors") {
+                    Options |= EOptionRelaxedErrors;
+                } else if (lowerword == "reflect-strict-array-suffix") {
+                    ReflectOptions |= EShReflectionStrictArraySuffix;
+                } else if (lowerword == "reflect-basic-array-suffix") {
+                    ReflectOptions |= EShReflectionBasicArraySuffix;
+                } else if (lowerword == "reflect-intermediate-io") {
+                    ReflectOptions |= EShReflectionIntermediateIO;
+                } else if (lowerword == "reflect-separate-buffers") {
+                    ReflectOptions |= EShReflectionSeparateBuffers;
+                } else if (lowerword == "reflect-all-block-variables") {
+                    ReflectOptions |= EShReflectionAllBlockVariables;
+                } else if (lowerword == "reflect-unwrap-io-blocks") {
+                    ReflectOptions |= EShReflectionUnwrapIOBlocks;
+                } else if (lowerword == "resource-set-bindings" || // synonyms
+                           lowerword == "resource-set-binding" || lowerword == "rsb") {
+                    ProcessResourceSetBindingBase(argc, argv, baseResourceSetBinding);
+                } else if (lowerword == "shift-image-bindings" || // synonyms
+                           lowerword == "shift-image-binding" || lowerword == "sib") {
+                    ProcessBindingBase(argc, argv, glslang::EResImage);
+                } else if (lowerword == "shift-sampler-bindings" || // synonyms
+                           lowerword == "shift-sampler-binding" || lowerword == "ssb") {
+                    ProcessBindingBase(argc, argv, glslang::EResSampler);
+                } else if (lowerword == "shift-uav-bindings" || // synonyms
+                           lowerword == "shift-uav-binding" || lowerword == "suavb") {
+                    ProcessBindingBase(argc, argv, glslang::EResUav);
+                } else if (lowerword == "shift-texture-bindings" || // synonyms
+                           lowerword == "shift-texture-binding" || lowerword == "stb") {
+                    ProcessBindingBase(argc, argv, glslang::EResTexture);
+                } else if (lowerword == "shift-ubo-bindings" || // synonyms
+                           lowerword == "shift-ubo-binding" || lowerword == "shift-cbuffer-bindings" ||
+                           lowerword == "shift-cbuffer-binding" || lowerword == "sub" || lowerword == "scb") {
+                    ProcessBindingBase(argc, argv, glslang::EResUbo);
+                } else if (lowerword == "shift-ssbo-bindings" || // synonyms
+                           lowerword == "shift-ssbo-binding" || lowerword == "sbb") {
+                    ProcessBindingBase(argc, argv, glslang::EResSsbo);
+                } else if (lowerword == "source-entrypoint" || // synonyms
+                           lowerword == "sep") {
+                    if (argc <= 1)
+                        Error("no <entry-point> provided for --source-entrypoint");
+                    sourceEntryPointName = argv[1];
+                    bumpArg();
+                    break;
+                } else if (lowerword == "spirv-dis") {
+                    SpvToolsDisassembler = true;
+                } else if (lowerword == "spirv-val") {
+                    SpvToolsValidate = true;
+                } else if (lowerword == "stdin") {
+                    Options |= EOptionStdin;
+                    shaderStageName = argv[1];
+                } else if (lowerword == "suppress-warnings") {
+                    Options |= EOptionSuppressWarnings;
+                } else if (lowerword == "target-env") {
+                    if (argc > 1) {
+                        if (strcmp(argv[1], "vulkan1.0") == 0) {
+                            setVulkanSpv();
+                            ClientVersion = glslang::EShTargetVulkan_1_0;
+                        } else if (strcmp(argv[1], "vulkan1.1") == 0) {
+                            setVulkanSpv();
+                            ClientVersion = glslang::EShTargetVulkan_1_1;
+                        } else if (strcmp(argv[1], "opengl") == 0) {
+                            setOpenGlSpv();
+                            ClientVersion = glslang::EShTargetOpenGL_450;
+                        } else if (strcmp(argv[1], "spirv1.0") == 0) {
+                            TargetLanguage = glslang::EShTargetSpv;
+                            TargetVersion = glslang::EShTargetSpv_1_0;
+                        } else if (strcmp(argv[1], "spirv1.1") == 0) {
+                            TargetLanguage = glslang::EShTargetSpv;
+                            TargetVersion = glslang::EShTargetSpv_1_1;
+                        } else if (strcmp(argv[1], "spirv1.2") == 0) {
+                            TargetLanguage = glslang::EShTargetSpv;
+                            TargetVersion = glslang::EShTargetSpv_1_2;
+                        } else if (strcmp(argv[1], "spirv1.3") == 0) {
+                            TargetLanguage = glslang::EShTargetSpv;
+                            TargetVersion = glslang::EShTargetSpv_1_3;
+                        } else if (strcmp(argv[1], "spirv1.4") == 0) {
+                            TargetLanguage = glslang::EShTargetSpv;
+                            TargetVersion = glslang::EShTargetSpv_1_4;
+                        } else if (strcmp(argv[1], "spirv1.5") == 0) {
+                            TargetLanguage = glslang::EShTargetSpv;
+                            TargetVersion = glslang::EShTargetSpv_1_5;
+                        } else
+                            Error("--target-env expected one of: vulkan1.0, vulkan1.1, opengl,\n"
+                                  "spirv1.0, spirv1.1, spirv1.2, spirv1.3, spirv1.4, or spirv1.5");
+                    }
+                    bumpArg();
+                } else if (lowerword == "variable-name" || // synonyms
+                           lowerword == "vn") {
+                    Options |= EOptionOutputHexadecimal;
+                    if (argc <= 1)
+                        Error("no <C-variable-name> provided for --variable-name");
+                    variableName = argv[1];
+                    bumpArg();
+                    break;
+                } else if (lowerword == "version") {
+                    Options |= EOptionDumpVersions;
+                } else {
+                    usage();
                 }
-                break;
+            } break;
             case 'C':
                 Options |= EOptionCascadingErrors;
                 break;
@@ -765,7 +781,7 @@ void ProcessArguments(std::vector<std::unique_ptr<glslang::TWorkItem>>& workItem
             }
         } else {
             std::string name(argv[0]);
-            if (! SetConfigFile(name)) {
+            if (!SetConfigFile(name)) {
                 workItems.push_back(std::unique_ptr<glslang::TWorkItem>(new glslang::TWorkItem(name)));
             }
         }
@@ -792,8 +808,7 @@ void ProcessArguments(std::vector<std::unique_ptr<glslang::TWorkItem>>& workItem
     if (binaryFileName && (Options & EOptionSpv) == 0)
         Error("no binary generation requested (e.g., -V)");
 
-    if ((Options & EOptionFlattenUniformArrays) != 0 &&
-        (Options & EOptionReadHlsl) == 0)
+    if ((Options & EOptionFlattenUniformArrays) != 0 && (Options & EOptionReadHlsl) == 0)
         Error("uniform array flattening only valid when compiling HLSL source.");
 
     // rationalize client and target language
@@ -873,7 +888,7 @@ void CompileShaders(glslang::TWorklist& worklist)
 
             CompileFile("stdin", compiler);
 
-            if (! (Options & EOptionSuppressInfolog))
+            if (!(Options & EOptionSuppressInfolog))
                 workItem->results = ShGetInfoLog(compiler);
 
             ShDestruct(compiler);
@@ -886,7 +901,7 @@ void CompileShaders(glslang::TWorklist& worklist)
 
             CompileFile(workItem->name.c_str(), compiler);
 
-            if (! (Options & EOptionSuppressInfolog))
+            if (!(Options & EOptionSuppressInfolog))
                 workItem->results = ShGetInfoLog(compiler);
 
             ShDestruct(compiler);
@@ -921,7 +936,7 @@ struct ShaderCompUnit {
     std::string fileName[maxCount];     // hold's the memory, but...
     const char* fileNameList[maxCount]; // downstream interface wants pointers
 
-    ShaderCompUnit(EShLanguage stage) : stage(stage), count(0) { }
+    ShaderCompUnit(EShLanguage stage) : stage(stage), count(0) {}
 
     ShaderCompUnit(const ShaderCompUnit& rhs)
     {
@@ -966,7 +981,7 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
 
     glslang::TProgram& program = *new glslang::TProgram;
     for (auto it = compUnits.cbegin(); it != compUnits.cend(); ++it) {
-        const auto &compUnit = *it;
+        const auto& compUnit = *it;
         glslang::TShader* shader = new glslang::TShader(compUnit.stage);
         shader->setStringsWithLengthsAndNames(compUnit.text, NULL, compUnit.fileNameList, compUnit.count);
         if (entryPointName)
@@ -988,7 +1003,7 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
 
             // Set base bindings
             shader->setShiftBinding(res, baseBinding[res][compUnit.stage]);
-            
+
             // Set bindings for particular resource sets
             // TODO: use a range based for loop here, when available in all environments.
             for (auto i = baseBindingForSet[res][compUnit.stage].begin();
@@ -1005,8 +1020,7 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
             shader->setAutoMapLocations(true);
 
         for (auto& uniOverride : uniformLocationOverrides) {
-            shader->addUniformLocationOverride(uniOverride.first.c_str(),
-                                               uniOverride.second);
+            shader->addUniformLocationOverride(uniOverride.first.c_str(), uniOverride.second);
         }
 
         shader->setUniformLocationBase(uniformBase);
@@ -1026,8 +1040,7 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
         // Set up the environment, some subsettings take precedence over earlier
         // ways of setting things.
         if (Options & EOptionSpv) {
-            shader->setEnvInput((Options & EOptionReadHlsl) ? glslang::EShSourceHlsl
-                                                            : glslang::EShSourceGlsl,
+            shader->setEnvInput((Options & EOptionReadHlsl) ? glslang::EShSourceHlsl : glslang::EShSourceGlsl,
                                 compUnit.stage, Client, ClientInputSemanticsVersion);
             shader->setEnvClient(Client, ClientVersion);
             shader->setEnvTarget(TargetLanguage, TargetVersion);
@@ -1042,8 +1055,8 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
         const int defaultVersion = Options & EOptionDefaultDesktop ? 110 : 100;
 
         DirStackFileIncluder includer;
-        std::for_each(IncludeDirectoryList.rbegin(), IncludeDirectoryList.rend(), [&includer](const std::string& dir) {
-            includer.pushExternalLocalDirectory(dir); });
+        std::for_each(IncludeDirectoryList.rbegin(), IncludeDirectoryList.rend(),
+                      [&includer](const std::string& dir) { includer.pushExternalLocalDirectory(dir); });
 #ifndef GLSLANG_WEB
         if (Options & EOptionOutputPreprocessed) {
             std::string str;
@@ -1058,16 +1071,23 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
         }
 #endif
 
-        if (! shader->parse(&Resources, defaultVersion, false, messages, includer))
+        if (!shader->parse(&Resources, defaultVersion, false, messages, includer))
             CompileFailed = true;
 
         program.addShader(shader);
 
-		//*** Generate Shader HxTech Pipeline information from defines in shader.Intermediate
-		//*** shader->getIntermediate()->ppContext;
+        //*** Generate Shader HxTech Pipeline information from defines in shader.Intermediate
 
-        if (! (Options & EOptionSuppressInfolog) &&
-            ! (Options & EOptionMemoryLeakMode)) {
+        glslang::TPpContext* ctx = shader->getIntermediate()->ppContext;
+        glslang::TPpContext::TSymbolMap& macros = ctx->macroDefs;
+
+        for (auto it = macros.begin(); it != macros.end(); ++it) {
+            if (strncmp(ctx->atomStrings.getString(it->first), "HX_", 3) == 0) {
+                printf("Macro: %s  value: %s\n", ctx->atomStrings.getString(it->first), it->second.body.getTokenAt(0).getName().c_str());				
+            }
+        }
+
+        if (!(Options & EOptionSuppressInfolog) && !(Options & EOptionMemoryLeakMode)) {
             PutsIfNonEmpty(compUnit.fileName[0].c_str());
             PutsIfNonEmpty(shader->getInfoLog());
             PutsIfNonEmpty(shader->getInfoDebugLog());
@@ -1079,7 +1099,7 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
     //
 
     // Link
-    if (! (Options & EOptionOutputPreprocessed) && ! program.link(messages))
+    if (!(Options & EOptionOutputPreprocessed) && !program.link(messages))
         LinkFailed = true;
 
 #ifndef GLSLANG_WEB
@@ -1091,8 +1111,7 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
 #endif
 
     // Report
-    if (! (Options & EOptionSuppressInfolog) &&
-        ! (Options & EOptionMemoryLeakMode)) {
+    if (!(Options & EOptionSuppressInfolog) && !(Options & EOptionMemoryLeakMode)) {
         PutsIfNonEmpty(program.getInfoLog());
         PutsIfNonEmpty(program.getInfoDebugLog());
     }
@@ -1124,11 +1143,9 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
                     spvOptions.validate = SpvToolsValidate;
                     glslang::GlslangToSpv(*program.getIntermediate((EShLanguage)stage), spirv, &logger, &spvOptions);
 
-					
-
                     // Dump the spv to a file or stdout, etc., but only if not doing
                     // memory/perf testing, as it's not internal to programmatic use.
-                    if (! (Options & EOptionMemoryLeakMode)) {
+                    if (!(Options & EOptionMemoryLeakMode)) {
                         printf("%s", logger.getAllMessages().c_str());
                         if (Options & EOptionOutputHexadecimal) {
                             glslang::OutputSpvHex(spirv, GetBinaryName((EShLanguage)stage), variableName);
@@ -1144,8 +1161,6 @@ void CompileAndLinkShaderUnits(std::vector<ShaderCompUnit> compUnits)
             }
         }
     }
-
-	
 
     // Free everything up, program has to go before the shaders
     // because it might have merged stuff from the shaders, and
@@ -1208,7 +1223,7 @@ void CompileAndLinkShaderFiles(glslang::TWorklist& Worklist)
     // all the perf/memory that a programmatic consumer will care about.
     for (int i = 0; i < ((Options & EOptionMemoryLeakMode) ? 100 : 1); ++i) {
         for (int j = 0; j < ((Options & EOptionMemoryLeakMode) ? 100 : 1); ++j)
-           CompileAndLinkShaderUnits(compUnits);
+            CompileAndLinkShaderUnits(compUnits);
 
         if (Options & EOptionMemoryLeakMode)
             glslang::OS_DumpMemoryCounters();
@@ -1237,13 +1252,12 @@ int singleMain()
 #endif
 
     if (Options & EOptionDumpBareVersion) {
-        printf("%d.%d.%d\n",
-            glslang::GetSpirvGeneratorVersion(), GLSLANG_MINOR_VERSION, GLSLANG_PATCH_LEVEL);
+        printf("%d.%d.%d\n", glslang::GetSpirvGeneratorVersion(), GLSLANG_MINOR_VERSION, GLSLANG_PATCH_LEVEL);
         if (workList.empty())
             return ESuccess;
     } else if (Options & EOptionDumpVersions) {
-        printf("Glslang Version: %d.%d.%d\n",
-            glslang::GetSpirvGeneratorVersion(), GLSLANG_MINOR_VERSION, GLSLANG_PATCH_LEVEL);
+        printf("Glslang Version: %d.%d.%d\n", glslang::GetSpirvGeneratorVersion(), GLSLANG_MINOR_VERSION,
+               GLSLANG_PATCH_LEVEL);
         printf("ESSL Version: %s\n", glslang::GetEsslVersionString());
         printf("GLSL Version: %s\n", glslang::GetGlslVersionString());
         std::string spirvVersion;
@@ -1279,16 +1293,16 @@ int singleMain()
     //
     if (Options & (EOptionLinkProgram | EOptionOutputPreprocessed)) {
         glslang::InitializeProcess();
-        glslang::InitializeProcess();  // also test reference counting of users
-        glslang::InitializeProcess();  // also test reference counting of users
-        glslang::FinalizeProcess();    // also test reference counting of users
-        glslang::FinalizeProcess();    // also test reference counting of users
+        glslang::InitializeProcess(); // also test reference counting of users
+        glslang::InitializeProcess(); // also test reference counting of users
+        glslang::FinalizeProcess();   // also test reference counting of users
+        glslang::FinalizeProcess();   // also test reference counting of users
         CompileAndLinkShaderFiles(workList);
         glslang::FinalizeProcess();
     } else {
         ShInitialize();
-        ShInitialize();  // also test reference counting of users
-        ShFinalize();    // also test reference counting of users
+        ShInitialize(); // also test reference counting of users
+        ShFinalize();   // also test reference counting of users
 
         bool printShaderNames = workList.size() > 1;
 
@@ -1456,7 +1470,8 @@ void CompileFile(const char* fileName, ShHandle compiler)
     for (int i = 0; i < ((Options & EOptionMemoryLeakMode) ? 100 : 1); ++i) {
         for (int j = 0; j < ((Options & EOptionMemoryLeakMode) ? 100 : 1); ++j) {
             // ret = ShCompile(compiler, shaderStrings, NumShaderStrings, lengths, EShOptNone, &Resources, Options, (Options & EOptionDefaultDesktop) ? 110 : 100, false, messages);
-            ret = ShCompile(compiler, &shaderString, 1, nullptr, EShOptNone, &Resources, Options, (Options & EOptionDefaultDesktop) ? 110 : 100, false, messages);
+            ret = ShCompile(compiler, &shaderString, 1, nullptr, EShOptNone, &Resources, Options,
+                            (Options & EOptionDefaultDesktop) ? 110 : 100, false, messages);
             // const char* multi[12] = { "# ve", "rsion", " 300 e", "s", "\n#err",
             //                         "or should be l", "ine 1", "string 5\n", "float glo", "bal",
             //                         ";\n#error should be line 2\n void main() {", "global = 2.3;}" };
@@ -1468,7 +1483,7 @@ void CompileFile(const char* fileName, ShHandle compiler)
             glslang::OS_DumpMemoryCounters();
     }
 
-    delete [] lengths;
+    delete[] lengths;
     FreeFileData(shaderString);
 
     if (ret == 0)
@@ -1641,8 +1656,7 @@ void usage()
            "  --variable-name <name>\n"
            "  --vn <name>                       creates a C header file that contains a\n"
            "                                    uint32_t array named <name>\n"
-           "                                    initialized with the shader binary code\n"
-           );
+           "                                    initialized with the shader binary code\n");
 
     exit(EFailUsage);
 }
@@ -1651,27 +1665,23 @@ void usage()
 
 #include <errno.h>
 
-int fopen_s(
-   FILE** pFile,
-   const char* filename,
-   const char* mode
-)
+int fopen_s(FILE** pFile, const char* filename, const char* mode)
 {
-   if (!pFile || !filename || !mode) {
-      return EINVAL;
-   }
+    if (!pFile || !filename || !mode) {
+        return EINVAL;
+    }
 
-   FILE* f = fopen(filename, mode);
-   if (! f) {
-      if (errno != 0) {
-         return errno;
-      } else {
-         return ENOENT;
-      }
-   }
-   *pFile = f;
+    FILE* f = fopen(filename, mode);
+    if (!f) {
+        if (errno != 0) {
+            return errno;
+        } else {
+            return ENOENT;
+        }
+    }
+    *pFile = f;
 
-   return 0;
+    return 0;
 }
 
 #endif
@@ -1681,7 +1691,7 @@ int fopen_s(
 //
 char* ReadFileData(const char* fileName)
 {
-    FILE *in = nullptr;
+    FILE* in = nullptr;
     int errorCode = fopen_s(&in, fileName, "r");
     if (errorCode || in == nullptr)
         Error("unable to open input file");
@@ -1692,7 +1702,7 @@ char* ReadFileData(const char* fileName)
 
     fseek(in, 0, SEEK_SET);
 
-    char* return_data = (char*)malloc(count + 1);  // freed in FreeFileData()
+    char* return_data = (char*)malloc(count + 1); // freed in FreeFileData()
     if ((int)fread(return_data, 1, count, in) != count) {
         free(return_data);
         Error("can't read input file");
@@ -1704,14 +1714,11 @@ char* ReadFileData(const char* fileName)
     return return_data;
 }
 
-void FreeFileData(char* data)
-{
-    free(data);
-}
+void FreeFileData(char* data) { free(data); }
 
 void InfoLogMsg(const char* msg, const char* name, const int num)
 {
-    if (num >= 0 )
+    if (num >= 0)
         printf("#### %s %s %d INFO LOG ####\n", msg, name, num);
     else
         printf("#### %s %s INFO LOG ####\n", msg, name);

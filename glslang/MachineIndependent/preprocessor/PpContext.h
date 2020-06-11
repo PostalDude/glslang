@@ -269,6 +269,7 @@ public:
             bool isAtom(int a) const { return atom == a; }
             int getAtom() const { return atom; }
             bool nonSpaced() const { return !space; }
+            const TString& getName() { return name; }
         protected:
             Token() {}
             int atom;
@@ -315,6 +316,9 @@ public:
         bool peekTokenizedPasting(bool lastTokenPastes);
         bool peekUntokenizedPasting();
         void reset() { currentPos = 0; }
+        
+		int getTokenCount() { return stream.size(); }
+		Token& getTokenAt(int idx) { return stream[idx]; }
 
     protected:
         TVector<Token> stream;
@@ -343,11 +347,13 @@ public:
     }
     void addMacroDef(int atom, MacroSymbol& macroDef) { macroDefs[atom] = macroDef; }
 
+	TStringAtomMap atomStrings;
+
 protected:
     TPpContext(TPpContext&);
     TPpContext& operator=(TPpContext&);
 
-    TStringAtomMap atomStrings;
+    
 
 
     char*   preamble;               // string to parse, all before line 1 of string 0, it is 0 if no preamble

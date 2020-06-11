@@ -155,8 +155,10 @@ namespace glslang {
 
 TStringAtomMap::TStringAtomMap(TStringAtomMap& other)
 {
-	atomMap = other.atomMap;
-    stringMap = other.stringMap;
+	for(auto it = other.atomMap.begin(); it != other.atomMap.end(); ++it) 
+	{
+		addAtomFixed(it->first.c_str(), it->second);
+    }    
 }
 
 //
